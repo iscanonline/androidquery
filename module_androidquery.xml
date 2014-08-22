@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="module_androidquery" default="compile.module.androidquery">
+  <dirname property="module.androidquery.basedir" file="${ant.file.module_androidquery}"/>
+  
+  <property name="module.jdk.home.androidquery" value="${jdk.home.android_api_18_platform}"/>
+  <property name="module.jdk.bin.androidquery" value="${jdk.bin.android_api_18_platform}"/>
+  <property name="module.jdk.classpath.androidquery" value="jdk.classpath.android_api_18_platform"/>
+  
+  <property name="compiler.args.androidquery" value="-encoding UTF-8 -source 1.6 ${compiler.args}"/>
+  
+  <property name="androidquery.output.dir" value="${module.androidquery.basedir}/../iScanAndroid/out/production/androidquery"/>
+  <property name="androidquery.testoutput.dir" value="${module.androidquery.basedir}/../iScanAndroid/out/test/androidquery"/>
+  
+  <path id="androidquery.module.bootclasspath">
+    <!-- Paths to be included in compilation bootclasspath -->
+  </path>
+  
+  <path id="androidquery.module.production.classpath">
+    <path refid="${module.jdk.classpath.androidquery}"/>
+  </path>
+  
+  <path id="androidquery.runtime.production.module.classpath">
+    <pathelement location="${androidquery.output.dir}"/>
+  </path>
+  
+  <path id="androidquery.module.classpath">
+    <path refid="${module.jdk.classpath.androidquery}"/>
+    <pathelement location="${androidquery.output.dir}"/>
+  </path>
+  
+  <path id="androidquery.runtime.module.classpath">
+    <pathelement location="${androidquery.testoutput.dir}"/>
+    <pathelement location="${androidquery.output.dir}"/>
+  </path>
+  
+  
+  <patternset id="excluded.from.module.androidquery">
+    <patternset refid="ignored.files"/>
+  </patternset>
+  
+  <patternset id="excluded.from.compilation.androidquery">
+    <patternset refid="excluded.from.module.androidquery"/>
+  </patternset>
+  
+  <path id="androidquery.module.sourcepath">
+    <dirset dir="${module.androidquery.basedir}">
+      <include name="gen"/>
+      <include name="src"/>
+    </dirset>
+  </path>
+  
+  
+  <target name="compile.module.androidquery" depends="compile.module.androidquery.production,compile.module.androidquery.tests" description="Compile module androidquery"/>
+  
+  <target name="compile.module.androidquery.production" depends="register.custom.compilers" description="Compile module androidquery; production classes">
+    <mkdir dir="${androidquery.output.dir}"/>
+    <javac2 destdir="${androidquery.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.androidquery}/javac">
+      <compilerarg line="${compiler.args.androidquery}"/>
+      <bootclasspath refid="androidquery.module.bootclasspath"/>
+      <classpath refid="androidquery.module.production.classpath"/>
+      <src refid="androidquery.module.sourcepath"/>
+      <patternset refid="excluded.from.compilation.androidquery"/>
+    </javac2>
+    
+    <copy todir="${androidquery.output.dir}">
+      <fileset dir="${module.androidquery.basedir}/gen">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+      </fileset>
+      <fileset dir="${module.androidquery.basedir}/src">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+      </fileset>
+    </copy>
+  </target>
+  
+  <target name="compile.module.androidquery.tests" depends="register.custom.compilers,compile.module.androidquery.production" description="compile module androidquery; test classes" unless="skip.tests"/>
+  
+  <target name="clean.module.androidquery" description="cleanup module">
+    <delete dir="${androidquery.output.dir}"/>
+    <delete dir="${androidquery.testoutput.dir}"/>
+  </target>
+</project>

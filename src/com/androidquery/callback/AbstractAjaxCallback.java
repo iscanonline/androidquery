@@ -111,7 +111,7 @@ import com.androidquery.util.XmlDom;
  */
 public abstract class AbstractAjaxCallback<T, K> implements Runnable{
 	
-	private static int NET_TIMEOUT = 30000;
+	private static int NET_TIMEOUT = 60000;
 	private static String AGENT = null;
 	private static int NETWORK_POOL = 4;
 	private static boolean GZIP = true;
@@ -1534,6 +1534,8 @@ public abstract class AbstractAjaxCallback<T, K> implements Runnable{
 		
 		
 	}
+	
+	
 	
 	private static SocketFactory ssf;
 	
