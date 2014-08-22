@@ -31,7 +31,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -39,9 +38,12 @@ import java.util.concurrent.TimeUnit;
 import android.app.Application;
 import android.content.Context;
 import android.content.SharedPreferences.Editor;
+import android.content.res.Resources;
+import android.os.AsyncTask;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
@@ -61,6 +63,10 @@ public class AQUtility {
 	
 	public static void setDebug(boolean debug){
 		AQUtility.debug = debug;
+	}
+	
+	public static boolean isDebug(){
+		return debug;
 	}
 	
 	public static void debugWait(long time){
@@ -293,15 +299,37 @@ public class AQUtility {
 		});
 	}
 	
+	public static void postAsync(final Runnable run){
+		
+		AsyncTask<Void, Void, String> task = new AsyncTask<Void, Void, String>(){
+			
+			@Override
+			protected String doInBackground(Void... params) {
+				
+				try{
+					run.run();
+				}catch(Exception e){
+					AQUtility.report(e);
+				}
+				
+				
+				return null;
+			}
+			
+		};
+		
+		task.execute();
+		
+	}
+	
+	
 	public static void postAsync(Object handler, String method){
 		postAsync(handler, method, new Class[0]);
 	}
 	
 	public static void postAsync(final Object handler, final String method, final Class<?>[] sig, final Object... params){
 		
-		ExecutorService exe = getFileStoreExecutor();
-			
-		exe.execute(new Runnable() {
+		postAsync(new Runnable() {
 			
 			@Override
 			public void run() {
@@ -358,13 +386,12 @@ public class AQUtility {
 	
     private static final int IO_BUFFER_SIZE = 1024 * 4;
     public static void copy(InputStream in, OutputStream out) throws IOException {
-    	//copy(in, out, 0, null, null);
     	copy(in, out, 0, null);
     }
     
+    public static boolean TEST_IO_EXCEPTION = false;
+    
     public static void copy(InputStream in, OutputStream out, int max, Progress progress) throws IOException {
-    	
-    	AQUtility.debug("content header", max);
     	
     	if(progress != null){
     		progress.reset();
@@ -373,8 +400,18 @@ public class AQUtility {
     	
     	byte[] b = new byte[IO_BUFFER_SIZE];
         int read;
+        int count = 0;
+        
         while((read = in.read(b)) != -1){
             out.write(b, 0, read);
+            
+            count++;
+            
+            if(TEST_IO_EXCEPTION && count > 2){
+                AQUtility.debug("simulating internet error");
+                throw new IOException();
+            }
+            
             if(progress != null){
             	progress.increment(read);
             }
@@ -507,11 +544,7 @@ public class AQUtility {
 		String hash = getMD5Hex(url);
 		return hash;
 	}
-	/*
-	public static File getExistedCacheByUrl(Context context, String url){
-		return getExistedCacheByUrl(getCacheDir(context), url);
-	}
-	*/
+	
 	public static File getCacheFile(File dir, String url){
 		if(url == null) return null;
 		if(url.startsWith(File.separator)){
@@ -526,7 +559,7 @@ public class AQUtility {
 	public static File getExistedCacheByUrl(File dir, String url){
 		
 		File file = getCacheFile(dir, url);
-		if(file == null || !file.exists()){
+		if(file == null || !file.exists() || file.length() == 0){
 			return null;
 		}
 		return file;
@@ -609,7 +642,7 @@ public class AQUtility {
 		File ext = Environment.getExternalStorageDirectory();
 		File tempDir = new File(ext, "aquery/temp");		
 		tempDir.mkdirs();
-		if(!tempDir.exists()){
+		if(!tempDir.exists() || !tempDir.canWrite()){
 		    return null;
 		}
 		return tempDir;
@@ -661,6 +694,14 @@ public class AQUtility {
 		return value;
 	}
 	
+	public static float pixel2dip(Context context, float n){
+	    Resources resources = context.getResources();
+	    DisplayMetrics metrics = resources.getDisplayMetrics();
+	    float dp = n / (metrics.densityDpi / 160f);
+	    return dp;
+
+	}
+	
 	private static Context context;
 	public static void setContext(Application app){
 		context = app.getApplicationContext();
@@ -673,4 +714,43 @@ public class AQUtility {
 		}
 		return context;
 	}
+	
+    // Mapping table from 6-bit nibbles to Base64 characters.
+    private static final char[] map1 = new char[64];
+       static {
+          int i=0;
+          for (char c='A'; c<='Z'; c++) map1[i++] = c;
+          for (char c='a'; c<='z'; c++) map1[i++] = c;
+          for (char c='0'; c<='9'; c++) map1[i++] = c;
+          map1[i++] = '+'; map1[i++] = '/'; }
+
+    // Mapping table from Base64 characters to 6-bit nibbles.
+    private static final byte[] map2 = new byte[128];
+       static {
+          for (int i=0; i<map2.length; i++) map2[i] = -1;
+          for (int i=0; i<64; i++) map2[map1[i]] = (byte)i; }
+    
+    //Source: http://www.source-code.biz/base64coder/java/Base64Coder.java.txt
+    public static char[] encode64(byte[] in, int iOff, int iLen) {
+        
+       int oDataLen = (iLen*4+2)/3;       // output length without padding
+       int oLen = ((iLen+2)/3)*4;         // output length including padding
+       char[] out = new char[oLen];
+       int ip = iOff;
+       int iEnd = iOff + iLen;
+       int op = 0;
+       while (ip < iEnd) {
+          int i0 = in[ip++] & 0xff;
+          int i1 = ip < iEnd ? in[ip++] & 0xff : 0;
+          int i2 = ip < iEnd ? in[ip++] & 0xff : 0;
+          int o0 = i0 >>> 2;
+          int o1 = ((i0 &   3) << 4) | (i1 >>> 4);
+          int o2 = ((i1 & 0xf) << 2) | (i2 >>> 6);
+          int o3 = i2 & 0x3F;
+          out[op++] = map1[o0];
+          out[op++] = map1[o1];
+          out[op] = op < oDataLen ? map1[o2] : '='; op++;
+          out[op] = op < oDataLen ? map1[o3] : '='; op++; }
+       return out; 
+    }
 }

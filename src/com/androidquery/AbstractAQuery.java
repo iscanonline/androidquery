@@ -19,6 +19,7 @@ package com.androidquery;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.nio.channels.FileChannel;
 import java.util.Iterator;
@@ -27,6 +28,8 @@ import java.util.WeakHashMap;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.entity.StringEntity;
+import org.json.JSONObject;
 
 import android.app.Activity;
 import android.app.Dialog;
@@ -54,6 +57,7 @@ import android.widget.AbsListView.OnScrollListener;
 import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
+import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.BaseAdapter;
 import android.widget.Button;
@@ -99,22 +103,24 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	protected Object progress;
 	protected AccountHandle ah;
 	private Transformer trans;
-	private int policy = CACHE_DEFAULT;
+	private int policy = Constants.CACHE_DEFAULT;
+	//private Integer policy = null;
 	private HttpHost proxy;
 
+	@SuppressWarnings("unchecked")
 	protected T create(View view){
 		
-		T result = null;
+		AbstractAQuery<?> result = null;
 		
 		try{
 			Constructor<T> c = getConstructor();
-			result = (T) c.newInstance(view);
+			result = c.newInstance(view);
 			result.act = act;
 		}catch(Exception e){
 			//should never happen
 			e.printStackTrace();
 		}
-		return result;
+		return (T) result;
 		
 	}
 	
@@ -277,7 +283,7 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	
 	
 	@SuppressWarnings("unchecked")
-	private T self(){
+	protected T self(){
 		return (T) this;
 	}
 
@@ -312,6 +318,14 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		reset();
 		return self();
 	}
+	
+	
+	/**
+	 * Points the current operating view to the specified view with tag.
+	 *
+	 * @param tag
+	 * @return self
+	 */
 	
 	public T id(String tag){
 		return id(findView(tag));
@@ -411,6 +425,12 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		return self();
 	}	
 	
+	/**
+	 * Apply the proxy info to next ajax request. 
+	 *
+	 * @param transformer transformer
+	 * @return self
+	 */
 	public T proxy(String host, int port){
 		proxy = new HttpHost(host, port);
 		return self();
@@ -516,9 +536,9 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	}
 	
 	/**
-	 * Set the text color of a TextView.
+	 * Set the text color of a TextView. Note that it's not a color resource id.
 	 *
-	 * @param color the color
+	 * @param color color code in ARGB
 	 * @return self
 	 */
 	public T textColor(int color){
@@ -529,6 +549,17 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		}
 		return self();
 	}
+	
+	/**
+     * Set the text color of a TextView from  a color resource id.
+     *
+     * @param color color resource id
+     * @return self
+     */
+    public T textColorId(int id){
+        
+        return textColor(getContext().getResources().getColor(id));
+    }
 	
 	
 	/**
@@ -983,12 +1014,14 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	 * @return self
 	 */
 	public T gone(){
-		
+		/*
 		if(view != null && view.getVisibility() != View.GONE){
 			view.setVisibility(View.GONE);
 		}
 		
 		return self();
+		*/
+		return visibility(View.GONE);
 	}
 	
 	/**
@@ -998,11 +1031,14 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	 */
 	public T invisible(){
 		
+		/*
 		if(view != null && view.getVisibility() != View.INVISIBLE){
 			view.setVisibility(View.INVISIBLE);
 		}
 		
 		return self();
+		*/
+		return visibility(View.INVISIBLE);
 	}
 	
 	/**
@@ -1012,8 +1048,25 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	 */
 	public T visible(){
 		
+		/*
 		if(view != null && view.getVisibility() != View.VISIBLE){
 			view.setVisibility(View.VISIBLE);
+		}
+		
+		return self();
+		*/
+		return visibility(View.VISIBLE);
+	}
+	
+	/**
+	 * Set view visibility, such as View.VISIBLE.
+	 *
+	 * @return self
+	 */
+	public T visibility(int visibility){
+		
+		if(view != null && view.getVisibility() != visibility){
+			view.setVisibility(visibility);
 		}
 		
 		return self();
@@ -1044,7 +1097,7 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	/**
 	 * Set view background color.
 	 *
-	 * @param color
+	 * @param color color code in ARGB
 	 * @return self
 	 */
 	public T backgroundColor(int color){
@@ -1055,6 +1108,21 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		
 		return self();
 	}
+	
+	/**
+     * Set view background color.
+     *
+     * @param color color code in resource id
+     * @return self
+     */
+    public T backgroundColorId(int colorId){
+        
+        if(view != null){       
+            view.setBackgroundColor(getContext().getResources().getColor(colorId));     
+        }
+        
+        return self();
+    }
 	
 	/**
 	 * Notify a ListView that the data of it's adapter is changed.
@@ -1408,6 +1476,42 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		
 			AdapterView<?> alv = (AdapterView<?>) view;
 			alv.setOnItemClickListener(listener);
+			
+		
+		}
+		
+		return self();
+		
+	}	
+	
+	/**
+	 * Register a callback method for when an item is long clicked in the ListView. Method must have signature of method(AdapterView<?> parent, View v, int pos, long id).
+	 *
+	 * @param handler The handler that has the public callback method.
+	 * @param method The method name of the callback.
+	 * @return self
+	 */
+	public T itemLongClicked(Object handler, String method){
+		
+		Common common = new Common().forward(handler, method, true, ON_ITEM_SIG);
+		return itemLongClicked(common);
+		
+	}
+	
+	
+	/**
+	 * Register a callback method for when an item is long clicked in the ListView.
+	 *
+	 * @param listener The callback method.
+	 * @return self
+	 */
+	public T itemLongClicked(OnItemLongClickListener listener){
+		
+		if(view instanceof AdapterView){
+		
+			AdapterView<?> alv = (AdapterView<?>) view;
+			alv.setOnItemLongClickListener(listener);
+			
 		
 		}
 		
@@ -1592,6 +1696,8 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		
 		return self();
 	}
+	
+	
 	
 	/**
 	 * Invoke the method on the current view.
@@ -1804,11 +1910,21 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	
 	protected <K> T invoke(AbstractAjaxCallback<?, K> cb){
 				
+		if(ah != null){
+			cb.auth(ah);
+		}
 		
-		cb.auth(ah);
-		cb.progress(progress);
-		cb.transformer(trans);
-		cb.policy(policy);
+		if(progress != null){
+			cb.progress(progress);
+		}
+		
+		if(trans != null){
+			cb.transformer(trans);
+		}
+		
+		//if(policy != null){
+			cb.policy(policy);
+		//}
 		
 		if(proxy != null){
 			cb.proxy(proxy.getHostName(), proxy.getPort());
@@ -1832,6 +1948,7 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		trans = null;
 		policy = CACHE_DEFAULT;
 		proxy = null;
+		
 		
 	}
 	
@@ -1992,12 +2109,56 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		
 	}
 	
+	/**
+	 * Ajax HTTP put.
+	 *
+	 * @param url url
+	 * @param contentHeader Content-Type header
+	 * @param type reponse type
+	 * @param callback callback
+	 * @return self
+	 * 
+	 */
+	
 	public <K> T put(String url, String contentHeader, HttpEntity entity, Class<K> type, AjaxCallback<K> callback){
 		
 		callback.url(url).type(type).method(AQuery.METHOD_PUT).header("Content-Type", contentHeader).param(AQuery.POST_ENTITY, entity);		
 		return ajax(callback);
 		
 	}
+	
+	public <K> T post(String url, String contentHeader, HttpEntity entity, Class<K> type, AjaxCallback<K> callback){
+        
+        callback.url(url).type(type).method(AQuery.METHOD_POST).header("Content-Type", contentHeader).param(AQuery.POST_ENTITY, entity);     
+        return ajax(callback);
+        
+    }
+	
+	public <K> T post(String url, JSONObject jo, Class<K> type, AjaxCallback<K> callback){
+	    
+	    try{
+	    
+    	    StringEntity entity = new StringEntity(jo.toString(), "UTF-8");
+    	    return post(url, "application/json", entity, type, callback);
+	    }catch(UnsupportedEncodingException e){
+	        throw new IllegalArgumentException(e);
+	    }
+	    
+	    
+	}
+	
+	public <K> T put(String url, JSONObject jo, Class<K> type, AjaxCallback<K> callback){
+        
+        try{
+        
+            StringEntity entity = new StringEntity(jo.toString(), "UTF-8");
+            return put(url, "application/json", entity, type, callback);
+        }catch(UnsupportedEncodingException e){
+            throw new IllegalArgumentException(e);
+        }
+        
+        
+    }
 	
 	
 	
@@ -2058,7 +2219,7 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	
 	
 	/**
-	 * Stop all ajax activities. Should be called when current activity is to be destroy.
+	 * Stop all ajax activities. Should only be called when app exits.
 	 *
 	 * 
 	 * @return self
@@ -2148,7 +2309,7 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	/**
 	 * @deprecated  As of release 0.21.3, replaced by shouldDelay(int position, View convertView, ViewGroup parent, String url)
 	 * 
-	 * This method is less efficicent and promote file check which could hold up the UI thread.
+	 * This method is less efficient and promote file check which could hold up the UI thread.
 	 * 
 	 * {@link #shouldDelay(int position, View convertView, ViewGroup parent, String url)}
 	 */
@@ -2161,7 +2322,7 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	/**
 	 * @deprecated  As of release 0.21.3, replaced by shouldDelay(int position, View convertView, ViewGroup parent, String url)
 	 * 
-	 * This method is less efficicent and promote file check which could hold up the UI thread.
+	 * This method is less efficient and promote file check which could hold up the UI thread.
 	 * 
 	 * {@link #shouldDelay(int position, View convertView, ViewGroup parent, String url)}
 	 */
@@ -2312,13 +2473,19 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 					file = new File(temp, filename);
 					file.createNewFile();
 					
-				    FileChannel ic = new FileInputStream(cached).getChannel();
-				    FileChannel oc = new FileOutputStream(file).getChannel();
+					FileInputStream fis = new FileInputStream(cached);
+					FileOutputStream fos = new FileOutputStream(file);
+					
+				    FileChannel ic = fis.getChannel();
+				    FileChannel oc = fos.getChannel();
+				    
 				    try{
 				    	ic.transferTo(0, ic.size(), oc);
 				    }finally{
-				        if(ic != null) ic.close();
-				        if(oc != null) oc.close();
+				    	AQUtility.close(fis);
+				    	AQUtility.close(fos);
+				    	AQUtility.close(ic);
+				    	AQUtility.close(oc);
 				    }
 					
 				}
@@ -2419,6 +2586,12 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 	//weak hash map that holds the dialogs so they will never memory leaked
 	private static WeakHashMap<Dialog, Void> dialogs = new WeakHashMap<Dialog, Void>();
 	
+	/**
+	 * Show a dialog. Method dismiss() or dismissAll() should be called later.
+	 * 
+	 * @return self
+	 * 
+	 */
 	public T show(Dialog dialog){
 		
 		try{
@@ -2432,6 +2605,12 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		return self();
 	}
 	
+	/**
+	 * Dismiss a dialog previously shown with show().
+	 * 
+	 * @return self
+	 * 
+	 */
 	public T dismiss(Dialog dialog){
 		
 		try{
@@ -2592,12 +2771,34 @@ public abstract class AbstractAQuery<T extends AbstractAQuery<T>> implements Con
 		return self();
 	}
 	
+	
+	/**
+	 * Download a file asynchronously.
+	 * 
+	 * @param url url
+	 * @param target the file to be saved
+	 * @param cb callback to be called when done
+	 * @return self
+	 * 
+	 */
+	
 	public T download(String url, File target, AjaxCallback<File> cb){
 		
 		cb.url(url).type(File.class).targetFile(target);		
 		return ajax(cb);
 	
 	}
+	
+	/**
+	 * Download a file asynchronously.
+	 * 
+	 * @param url url
+	 * @param target the file to be saved
+	 * @param handler the callback handler
+	 * @param callback the callback method
+	 * @return self
+	 * 
+	 */
 	
 	public T download(String url, File target, Object handler, String callback){
 		

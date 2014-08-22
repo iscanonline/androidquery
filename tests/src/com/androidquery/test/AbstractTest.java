@@ -3,6 +3,7 @@ package com.androidquery.test;
 import java.io.File;
 
 import com.androidquery.AQuery;
+import com.androidquery.callback.AjaxCallback;
 import com.androidquery.callback.BitmapAjaxCallback;
 import com.androidquery.util.AQUtility;
 
@@ -13,9 +14,9 @@ public abstract class AbstractTest<T extends Activity> extends ActivityInstrumen
 
 	protected AQuery aq;
 	
-	protected String ICON_URL = "http://www.vikispot.com/z/images/vikispot/android-w.png";
+	protected String ICON_URL = "http://www.androidquery.com/z/images/vikispot/android-w.png";
 	protected String LAND_URL = "http://farm6.static.flickr.com/5035/5802797131_a729dac808_b.jpg";
-	protected String INVALID_URL = "http://www.vikispot.com/z/images/vikispot/xyz.png";
+	protected String INVALID_URL = "http://www.androidquery.com/z/images/vikispot/xyz.png";
 	
 	
 	public AbstractTest(Class cls){
@@ -26,6 +27,10 @@ public abstract class AbstractTest<T extends Activity> extends ActivityInstrumen
 	protected void setUp() throws Exception {
         super.setUp();
         aq = new AQuery(getActivity());
+        AjaxCallback.setSimulateError(false);
+        //AjaxCallback.setProxy(null, 0, null, null);
+        AjaxCallback.setProxyHandle(null);
+        AQUtility.TEST_IO_EXCEPTION = false;
         AQUtility.debug("new act", getActivity() + ":" + getActivity().isFinishing());
     }
 	

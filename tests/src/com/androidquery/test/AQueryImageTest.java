@@ -17,6 +17,7 @@ import com.androidquery.util.AQUtility;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Drawable;
+import android.media.ExifInterface;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
 import android.view.View;
@@ -300,6 +301,38 @@ public class AQueryImageTest extends AbstractTest<AQueryTestActivity> {
 		
     }	
 	
+	public void testImageByCallbackAsync() {
+		
+		clearCache();
+		
+		
+		AQUtility.post(new Runnable() {
+			
+			@Override
+			public void run() {
+							
+				//aq.id(R.id.image).image(ICON_URL, true, true, 0, 0, null, AQuery.FADE_IN);
+				BitmapAjaxCallback cb = new BitmapAjaxCallback();
+				cb.url(ICON_URL);
+				
+				//aq.id(R.id.image).image(cb);
+				ImageView iv = aq.id(R.id.image).getImageView();
+				cb.imageView(iv).async(getActivity());
+				
+			}
+		});
+		
+		
+		waitAsync(2000);
+		
+		assertLoaded(aq.getImageView(), true);
+		
+		
+		Bitmap bm = aq.getCachedImage(ICON_URL);		
+		assertNotNull(bm);
+		
+    }	
+	
 	public void testImageByCallback2() {
 		
 		clearCache();
@@ -474,6 +507,8 @@ public class AQueryImageTest extends AbstractTest<AQueryTestActivity> {
 				
 				Bitmap bm = aq.getCachedImage(R.drawable.icon);
 				assertNotNull(bm);
+				
+				
 			}
 		});
 		
@@ -482,5 +517,124 @@ public class AQueryImageTest extends AbstractTest<AQueryTestActivity> {
 		
 		
     }	
+	
+	/*
+	public void testIfModified() {
+		
+		String url = ICON_URL;
+		
+		AjaxCallback<Bitmap> cb = new AjaxCallback<Bitmap>();
+		cb.type(Bitmap.class).url(url);
+		
+		aq.sync(cb);
+		
+		Bitmap bm = cb.getResult();
+		AjaxStatus status = cb.getStatus();
+		
+		assertNotNull(bm);
+		
+		assertEquals(304, status.getCode());
+		
+		File file;
+		
+		
+	}
+	*/
+	
+	public void testAutoRotate() throws IOException{
+		
+		
+		String imageUrl = "http://res.dbkon.co.kr/resource/201302091360376386575001.jpg";            
+		
+		BitmapAjaxCallback cb = new BitmapAjaxCallback();
+		cb.url(imageUrl).targetWidth(300).rotate(true);
+		
+		aq.id(R.id.image).image(cb);
+		
+		cb.block();
+		
+		Bitmap bm = cb.getResult();
+		AjaxStatus status = cb.getStatus();
+		
+		assertNotNull(bm);
+		
+	}
+	
+	public void testMalformedImage() {
+        
+        clearCache();
+        
+        final String badUrl = "http://www.google.com?test=hello";
+        
+        AQUtility.post(new Runnable() {
+            
+            @Override
+            public void run() {
+                aq.id(R.id.image).image(badUrl);
+            }
+        });
+        
+        waitAsync(2000);
+        
+        //assertLoaded(aq.getImageView(), true);
+        
+        Bitmap bm = aq.getCachedImage(badUrl);
+        
+        assertNull(bm);
+        
+        File file = aq.getCachedFile(badUrl);
+        assertNull(file);
+        
+    }
+	
+	private Bitmap bmResult;
+	
+	public void testImageIOError() {
+        
+        clearCache();
+        
+        AQUtility.cleanCache(AQUtility.getCacheDir(getActivity()), 0, 0);
+             
+        File file = aq.getCachedFile(LAND_URL);
+        
+        assertNull(file);
+        
+        AQUtility.TEST_IO_EXCEPTION = true;
+        
+        AQUtility.post(new Runnable() {
+            
+            @Override
+            public void run() {
+                            
+                BitmapAjaxCallback cb = new BitmapAjaxCallback(){
+                
+                    protected void callback(String url, ImageView iv, Bitmap bm, AjaxStatus status) {
+                    
+                        AQUtility.debug("bm", bm);
+                        
+                        //iv.setImageBitmap(bm);
+                        bmResult = bm;
+                    }
+                    
+                };
+                
+                aq.id(R.id.image).image(LAND_URL, true, true, 0, 0, cb);
+            }
+        });
+        
+        
+        waitAsync(2000);
+        
+        assertNull(bmResult);
+        
+        File file2 = aq.getCachedFile(LAND_URL);
+        
+        if(file2 != null){
+            AQUtility.debug("file length", file2.length());
+        }
+        
+        assertNull(file2);
+        
+    }   
 	
 }
